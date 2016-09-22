@@ -50,9 +50,37 @@ extern YYSTYPE cool_yylval;
  * Define names for regular expressions here.
  */
 
-digit       [0-9]
-
 %%
+
+(?i:class) return CLASS;
+(?i:else) return ELSE;
+f(?i:alse) {yylval.boolean=false;return BOOL_CONST;}
+(?i:fi) return FI;
+(?i:if) return IF;
+(?i:in) return IN;
+(?i:inherits) return INHERITS;
+(?i:isvoid) return ISVOID;
+(?i:let) return LET;
+(?i:loop) return LOOP;
+(?i:pool) return POOL;
+(?i:then) return THEN;
+(?i:while) return WHILE;
+(?i:case) return CASE;
+(?i:esac) return ESAC;
+(?i:new) return NEW;
+(?i:of) return OF;
+(?i:not) return NOT;
+t(?i:ure) {yylval.boolean=true;return BOOL_CONST;}
+"<-" return ASSIGN;
+"<=" return LE;
+"=>" return DARROW;
+[-.@~+*/<=:(){},;] return yytext[0];
+
+[0-9]+ {yylval.symbol=inttable.add_string(yytext);return INT_CONST;}
+[A-Z][A-Za-z0-9_]* {yylval.symbol=idtable.add_string(yytext);return TYPEID;}
+[a-z][A-Za-z0-9_]* {yylval.symbol=idtable.add_string(yytext);return OBJECTID;}
+
+[ \n\f\r\t\v] if(yytext[0]=='\n')curr_lineno++;
 
  /*
   * Define regular expressions for the tokens of COOL here. Make sure, you
