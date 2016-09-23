@@ -123,7 +123,8 @@ t(?i:rue) {yylval.boolean=true;return BOOL_CONST;}
                 BEGIN(INITIAL);
                 curr_lineno++;
                 return ERROR;}
-<string><<EOF>> {BEGIN(INITIAL);
+<string><<EOF>> {YY_NEW_FILE;
+				BEGIN(INITIAL);
                 yylval.error_msg="EOF in string constant";
                 return ERROR;}
 <string>. {yymore();}
