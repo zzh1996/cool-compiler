@@ -75,7 +75,7 @@ f(?i:alse) {yylval.boolean=false;return BOOL_CONST;}
 (?i:new) return NEW;
 (?i:of) return OF;
 (?i:not) return NOT;
-t(?i:ure) {yylval.boolean=true;return BOOL_CONST;}
+t(?i:rue) {yylval.boolean=true;return BOOL_CONST;}
 "<-" return ASSIGN;
 "<=" return LE;
 "=>" return DARROW;
@@ -90,9 +90,14 @@ t(?i:ure) {yylval.boolean=true;return BOOL_CONST;}
 
  /*strings*/
 "\"" {BEGIN(string);yymore();}
-<string>\\. {if(yytext[1]=='\n');yymore();}
+<string>\\[^\0\n] {yymore();}
+<string>\\\n {curr_lineno++;yymore();}
 <string>\" {char *s=yytext+1,*d=string_buf;
                 BEGIN(INITIAL);
+                if(yyleng!=strlen(yytext)){
+                    yylval.error_msg="String contains null character.";
+                    return ERROR;
+                }
                 while(*(s+1)){
                     if(*s=='\\'){
                         switch(*++s){
@@ -117,8 +122,6 @@ t(?i:ure) {yylval.boolean=true;return BOOL_CONST;}
 <string>\n {yylval.error_msg="Unterminated string constant";
                 BEGIN(INITIAL);
                 curr_lineno++;
-                return ERROR;}
-<string>\0 {yylval.error_msg="String contains null character";
                 return ERROR;}
 <string><<EOF>> {BEGIN(INITIAL);
                 yylval.error_msg="EOF in string constant";
