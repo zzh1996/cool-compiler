@@ -34,6 +34,8 @@ extern FILE *fin; /* we read from this file */
 char string_buf[MAX_STR_CONST]; /* to assemble string constants */
 char *string_buf_ptr;
 
+int comment_cnt;
+
 extern int curr_lineno;
 
 extern YYSTYPE cool_yylval;
@@ -49,6 +51,9 @@ extern YYSTYPE cool_yylval;
 /*
  * Define names for regular expressions here.
  */
+
+%x string
+%x comment
 
 %%
 
@@ -74,6 +79,7 @@ t(?i:ure) {yylval.boolean=true;return BOOL_CONST;}
 "<-" return ASSIGN;
 "<=" return LE;
 "=>" return DARROW;
+"*)" {yylval.error_msg="Unmatched *)";return ERROR;}
 [-.@~+*/<=:(){},;] return yytext[0];
 
 [0-9]+ {yylval.symbol=inttable.add_string(yytext);return INT_CONST;}
@@ -81,6 +87,56 @@ t(?i:ure) {yylval.boolean=true;return BOOL_CONST;}
 [a-z][A-Za-z0-9_]* {yylval.symbol=idtable.add_string(yytext);return OBJECTID;}
 
 [ \n\f\r\t\v] if(yytext[0]=='\n')curr_lineno++;
+
+ /*strings*/
+"\"" {BEGIN(string);yymore();}
+<string>\\. {if(yytext[1]=='\n');yymore();}
+<string>\" {char *s=yytext+1,*d=string_buf;
+                BEGIN(INITIAL);
+                while(*(s+1)){
+                    if(*s=='\\'){
+                        switch(*++s){
+                            case 'b':*d='\b';break;
+                            case 't':*d='\t';break;
+                            case 'n':*d='\n';break;
+                            case 'f':*d='\f';break;
+                            default:*d=*s;break;
+                        }
+                        s++;d++;
+                    }else{
+                        *d++=*s++;
+                    }
+                    if(d-string_buf>=MAX_STR_CONST){
+                        yylval.error_msg="String constant too long";
+                        return ERROR;
+                    }
+                }
+                *d='\0';
+                yylval.symbol=stringtable.add_string(string_buf);
+                return STR_CONST;}
+<string>\n {yylval.error_msg="Unterminated string constant";
+                BEGIN(INITIAL);
+                curr_lineno++;
+                return ERROR;}
+<string>\0 {yylval.error_msg="String contains null character";
+                return ERROR;}
+<string><<EOF>> {BEGIN(INITIAL);
+                yylval.error_msg="EOF in string constant";
+                return ERROR;}
+<string>. {yymore();}
+
+ /*comments*/
+--.*
+"(*" {comment_cnt=1;BEGIN(comment);}
+<comment>"(*" {comment_cnt++;}
+<comment>"*)" {comment_cnt--;if(comment_cnt==0)BEGIN(INITIAL);}
+<comment>\n {curr_lineno++;}
+<comment><<EOF>> {BEGIN(INITIAL);
+                yylval.error_msg="EOF in comment";
+                return ERROR;}
+<comment>.
+
+. {yylval.error_msg=yytext;return ERROR;}
 
  /*
   * Define regular expressions for the tokens of COOL here. Make sure, you
