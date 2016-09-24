@@ -34,7 +34,7 @@ extern FILE *fin; /* we read from this file */
 char string_buf[MAX_STR_CONST]; /* to assemble string constants */
 char *string_buf_ptr;
 
-int comment_cnt;
+int comment_cnt; /* count nested comments */
 
 extern int curr_lineno;
 
@@ -52,11 +52,12 @@ extern YYSTYPE cool_yylval;
  * Define names for regular expressions here.
  */
 
+/* start conditions for string and comment */
 %x string
 %x comment
 
 %%
-
+ /* keywords */
 (?i:class) return CLASS;
 (?i:else) return ELSE;
 f(?i:alse) {yylval.boolean=false;return BOOL_CONST;}
@@ -80,26 +81,35 @@ t(?i:rue) {yylval.boolean=true;return BOOL_CONST;}
 "<=" return LE;
 "=>" return DARROW;
 "*)" {yylval.error_msg="Unmatched *)";return ERROR;}
+
+ /* single chars */
 [-.@~+*/<=:(){},;] return yytext[0];
 
+ /* numbers, typeids and objectids. add them into stringtab and return token */
 [0-9]+ {yylval.symbol=inttable.add_string(yytext);return INT_CONST;}
 [A-Z][A-Za-z0-9_]* {yylval.symbol=idtable.add_string(yytext);return TYPEID;}
 [a-z][A-Za-z0-9_]* {yylval.symbol=idtable.add_string(yytext);return OBJECTID;}
 
+ /* white spaces */
 [ \n\f\r\t\v] if(yytext[0]=='\n')curr_lineno++;
 
- /*strings*/
+ /* strings */
+ /* begin of string */
 "\"" {BEGIN(string);yymore();}
+ /* escaped chars */
 <string>\\[^\0\n] {yymore();}
+ /* escaped newline */
 <string>\\\n {curr_lineno++;yymore();}
+ /* end of string, unescape the string and add to stringtab */
 <string>\" {char *s=yytext+1,*d=string_buf;
                 BEGIN(INITIAL);
+				// null char in string
                 if(yyleng!=strlen(yytext)){
                     yylval.error_msg="String contains null character.";
                     return ERROR;
                 }
                 while(*(s+1)){
-                    if(*s=='\\'){
+                    if(*s=='\\'){ // escaped char
                         switch(*++s){
                             case 'b':*d='\b';break;
                             case 't':*d='\t';break;
@@ -111,6 +121,7 @@ t(?i:rue) {yylval.boolean=true;return BOOL_CONST;}
                     }else{
                         *d++=*s++;
                     }
+					// too long
                     if(d-string_buf>=MAX_STR_CONST){
                         yylval.error_msg="String constant too long";
                         return ERROR;
@@ -119,27 +130,37 @@ t(?i:rue) {yylval.boolean=true;return BOOL_CONST;}
                 *d='\0';
                 yylval.symbol=stringtable.add_string(string_buf);
                 return STR_CONST;}
+ /* unescaped newline */
 <string>\n {yylval.error_msg="Unterminated string constant";
                 BEGIN(INITIAL);
                 curr_lineno++;
                 return ERROR;}
+ /* EOF */
 <string><<EOF>> {YY_NEW_FILE;
 				BEGIN(INITIAL);
                 yylval.error_msg="EOF in string constant";
                 return ERROR;}
+ /* other chars */
 <string>. {yymore();}
 
- /*comments*/
+ /* comments */
+ /* one line comment */
 --.*
+ /* begin multiline comment */
 "(*" {comment_cnt=1;BEGIN(comment);}
+ /* nested comments */
 <comment>"(*" {comment_cnt++;}
 <comment>"*)" {comment_cnt--;if(comment_cnt==0)BEGIN(INITIAL);}
+ /* newline in comments */
 <comment>\n {curr_lineno++;}
+ /* EOF */
 <comment><<EOF>> {BEGIN(INITIAL);
                 yylval.error_msg="EOF in comment";
                 return ERROR;}
+ /* other chars */
 <comment>.
 
+ /* other undefined chars */
 . {yylval.error_msg=yytext;return ERROR;}
 
  /*
