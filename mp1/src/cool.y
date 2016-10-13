@@ -99,10 +99,12 @@ extern int VERBOSE_ERRORS;
 /* You will want to change the following line. */
 %type <features> feature_list
 %type <feature> feature
+%type <formals> formal_list_nonempty
 %type <formals> formal_list
 %type <formal> formal
 %type <expression> expr
 %type <expressions> expr_list
+%type <expressions> expr_list_nonempty
 %type <expressions> expr_list2
 %type <expressions> let_list
 %type <cases> case_list
@@ -150,23 +152,47 @@ feature_list:        /* empty */
         ;
 
 feature : OBJECTID '(' ')' ':' TYPEID '{' expr '}' ';'
+                { $$ = method($1,nil_Formals(),$5,$7); }
         | OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}' ';'
+                { $$ = method($1,$3,$6,$8); }
         | OBJECTID ':' TYPEID ';'
+                { $$ = attr($1,$3,no_expr()); }
         | OBJECTID ':' TYPEID ASSIGN expr ';'
+                { $$ = attr($1,$3,$5); }
+        ;
 
 formal_list
-        : /* empty */
-        | formal_list ',' formal
+        : 
+                { $$ = nil_Formals(); }
+        | formal_list_nonempty
+                { $$ = $1; }
+        ;
+
+formal_list_nonempty
+        : formal
+                { $$ = single_Formals($1); }
+        | formal_list_nonempty ',' formal
+                { $$ = append_Formals($1,single_Formals($3)); }
+        ;
 
 formal  : OBJECTID ':' TYPEID
+                { $$ = formal($1,$3); }
+        ;
 
 expr    : OBJECTID ASSIGN expr
+                { $$ = assign($1,$3); }
         | expr '.' OBJECTID '(' expr_list ')'
+                { $$ = dispatch($1,$3,$5); }
         | expr '@' TYPEID '.' OBJECTID '(' expr_list ')'
+                { $$ = static_dispatch($1,$3,$5,$7); }
         | OBJECTID '(' expr_list ')'
+                { $$ = dispatch(object(idtable.add_string("self")),$1,$3); }
         | IF expr THEN expr ELSE expr FI
+                { $$ = cond($2,$4,$6); }
         | WHILE expr LOOP expr POOL
+                { $$ = loop($2,$4); }
         | '{' expr_list2 '}'
+                { $$ = block($2); }
         | LET let_list IN expr
         | CASE expr OF case_list ESAC
         | NEW TYPEID
@@ -185,24 +211,34 @@ expr    : OBJECTID ASSIGN expr
         | INT_CONST
         | STR_CONST
         | BOOL_CONST
+        ;
 
 expr_list
-        : /* empty */
-        | expr_list ',' expr
+        :
+        | expr_list_nonempty
+        ;
+
+expr_list_nonempty
+        : expr
+        | expr_list_nonempty ',' expr
+        ;
 
 expr_list2
         : expr ';'
         | expr_list2 expr ';'
+        ;
 
 let_list
         : OBJECTID ':' TYPEID
         | OBJECTID ':' TYPEID ASSIGN expr
         | let_list OBJECTID ':' TYPEID
         | let_list OBJECTID ':' TYPEID ASSIGN expr
+        ;
 
 case_list
         : OBJECTID ':' TYPEID DARROW expr ';'
         | case_list OBJECTID ':' TYPEID DARROW expr ';'
+        ;
 
 
 /* end of grammar */
