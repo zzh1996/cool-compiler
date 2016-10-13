@@ -121,7 +121,7 @@ extern int VERBOSE_ERRORS;
    a <- b is an Expression, but assignment should be ID <- expr. */
 %precedence ASSIGN
 
-/* unary operations do not need associative */
+/* unary operations do not need associativity */
 %precedence NOT
 %nonassoc LE '<' '='
 %left '+' '-'
