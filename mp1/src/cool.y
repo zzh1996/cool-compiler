@@ -111,6 +111,7 @@ extern int VERBOSE_ERRORS;
 
 
 /* Precedence declarations go here. */
+%left IN /* in order to solve conflicts */
 %right ASSIGN
 %right NOT
 %nonassoc LE '<' '='
@@ -151,9 +152,7 @@ feature_list:        /* empty */
                 { $$ = append_Features($1,single_Features($2)); }
         ;
 
-feature : OBJECTID '(' ')' ':' TYPEID '{' expr '}' ';'
-                { $$ = method($1,nil_Formals(),$5,$7); }
-        | OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}' ';'
+feature : OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}' ';'
                 { $$ = method($1,$3,$6,$8); }
         | OBJECTID ':' TYPEID ';'
                 { $$ = attr($1,$3,no_expr()); }
