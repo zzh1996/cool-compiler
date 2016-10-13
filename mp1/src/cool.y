@@ -111,16 +111,25 @@ extern int VERBOSE_ERRORS;
 
 
 /* Precedence declarations go here. */
-%left IN /* in order to solve conflicts */
-%right ASSIGN
-%right NOT
+
+/* in order to solve conflicts */
+%precedence IN
+
+/* I know that assignment is right-associative,
+   but in COOL assignment can never be left-associative.
+   If a <- b <- c is explained as (a <- b) <-c,
+   a <- b is an Expression, but assignment should be ID <- expr. */
+%precedence ASSIGN
+
+/* unary operations do not need associative */
+%precedence NOT
 %nonassoc LE '<' '='
 %left '+' '-'
 %left '*' '/'
-%right ISVOID
-%right '~'
-%nonassoc '@'
-%left '.'
+%precedence ISVOID
+%precedence '~'
+%precedence '@'
+%precedence '.'
 
 
 %%
@@ -230,7 +239,7 @@ expr    : OBJECTID ASSIGN expr
                 { $$ = bool_const($1); }
         ;
 
-expr_list
+expr_list /* expr list seperated by ',' */
         : /* empty */
                 { $$ = nil_Expressions(); }
         | expr_list_nonempty
@@ -244,7 +253,7 @@ expr_list_nonempty
                 { $$ = append_Expressions($1,single_Expressions($3)); }
         ;
 
-expr_list2
+expr_list2 /* expr list ends with ';' */
         : expr ';'
                 { $$ = single_Expressions($1); }
         | expr_list2 expr ';'
