@@ -106,7 +106,7 @@ extern int VERBOSE_ERRORS;
 %type <expressions> expr_list
 %type <expressions> expr_list_nonempty
 %type <expressions> expr_list2
-%type <expressions> let_list
+%type <expression> let_list
 %type <cases> case_list
 
 
@@ -193,51 +193,81 @@ expr    : OBJECTID ASSIGN expr
                 { $$ = loop($2,$4); }
         | '{' expr_list2 '}'
                 { $$ = block($2); }
-        | LET let_list IN expr
+        | LET let_list
+                { $$ = $2; }
         | CASE expr OF case_list ESAC
+                { $$ = typcase($2,$4); }
         | NEW TYPEID
+                { $$ = new_($2); }
         | ISVOID expr
+                { $$ = isvoid($2); }
         | expr '+' expr
+                { $$ = plus($1,$3); }
         | expr '-' expr
+                { $$ = sub($1,$3); }
         | expr '*' expr
+                { $$ = mul($1,$3); }
         | expr '/' expr
+                { $$ = divide($1,$3); }
         | '~' expr
+                { $$ = neg($2); }
         | expr '<' expr
+                { $$ = lt($1,$3); }
         | expr LE expr
+                { $$ = leq($1,$3); }
         | expr '=' expr
+                { $$ = eq($1,$3); }
         | NOT expr
+                { $$ = comp($2); }
         | '(' expr ')'
+                { $$ = $2; }
         | OBJECTID
+                { $$ = object($1); }
         | INT_CONST
+                { $$ = int_const($1); }
         | STR_CONST
+                { $$ = string_const($1); }
         | BOOL_CONST
+                { $$ = bool_const($1); }
         ;
 
 expr_list
-        :
+        : /* empty */
+                { $$ = nil_Expressions(); }
         | expr_list_nonempty
+                { $$ = $1; }
         ;
 
 expr_list_nonempty
         : expr
+                { $$ = single_Expressions($1); }
         | expr_list_nonempty ',' expr
+                { $$ = append_Expressions($1,single_Expressions($3)); }
         ;
 
 expr_list2
         : expr ';'
+                { $$ = single_Expressions($1); }
         | expr_list2 expr ';'
+                { $$ = append_Expressions($1,single_Expressions($2)); }
         ;
 
 let_list
-        : OBJECTID ':' TYPEID
-        | OBJECTID ':' TYPEID ASSIGN expr
-        | let_list OBJECTID ':' TYPEID
-        | let_list OBJECTID ':' TYPEID ASSIGN expr
+        : OBJECTID ':' TYPEID IN expr
+                { $$ = let($1,$3,no_expr(),$5); }
+        | OBJECTID ':' TYPEID ASSIGN expr IN expr
+                { $$ = let($1,$3,$5,$7); }
+        | OBJECTID ':' TYPEID ',' let_list
+                { $$ = let($1,$3,no_expr(),$5); }
+        | OBJECTID ':' TYPEID ASSIGN expr ',' let_list
+                { $$ = let($1,$3,$5,$7); }
         ;
 
 case_list
         : OBJECTID ':' TYPEID DARROW expr ';'
+                { $$ = single_Cases(branch($1,$3,$5)); }
         | case_list OBJECTID ':' TYPEID DARROW expr ';'
+                { $$ = append_Cases($1,single_Cases(branch($2,$4,$6))); }
         ;
 
 
