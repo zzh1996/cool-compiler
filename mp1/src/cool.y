@@ -107,6 +107,7 @@ extern int VERBOSE_ERRORS;
 %type <expressions> expr_list_nonempty
 %type <expressions> expr_list2
 %type <expression> let_list
+%type <expression> no_expr
 %type <cases> case_list
 
 
@@ -152,15 +153,19 @@ class   : CLASS TYPEID '{' feature_list '}' ';'
                               stringtable.add_string(curr_filename)); }
         | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
                 { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
-        | CLASS TYPEID '{' error '}' ';'
+        | error
                 { $$ = nullptr; }
-        | CLASS error ';'
+        | CLASS error '{' feature_list '}' ';'
                 { $$ = nullptr; }
-        | CLASS TYPEID INHERITS TYPEID '{' error '}' ';'
+        | CLASS TYPEID '{' feature_list '}' error
+                { $$ = nullptr; }
+        | CLASS TYPEID error TYPEID '{' feature_list '}' ';'
                 { $$ = nullptr; }
         | CLASS TYPEID INHERITS error '{' feature_list '}' ';'
                 { $$ = nullptr; }
-        | CLASS TYPEID error '{' feature_list '}' ';'
+        | CLASS TYPEID INHERITS TYPEID error ';'
+                { $$ = nullptr; }
+        | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' error
                 { $$ = nullptr; }
         ;
 
@@ -177,15 +182,35 @@ feature : OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}' ';'
                 { $$ = attr($1,$3,no_expr()); }
         | OBJECTID ':' TYPEID ASSIGN expr ';'
                 { $$ = attr($1,$3,$5); }
-        | OBJECTID '(' formal_list ')' ':' TYPEID '{' error '}' ';'
+        | error '(' formal_list ')' ':' TYPEID '{' expr '}' ';'
                 { $$ = nullptr; }
-        | OBJECTID '(' error ')' ':' TYPEID '{' expr '}' ';'
+        | error ':' TYPEID ';'
+                { $$ = nullptr; }
+        | error ':' TYPEID ASSIGN expr ';'
+                { $$ = nullptr; }
+        | OBJECTID error ':' TYPEID '{' expr '}' ';'
+                { $$ = nullptr; }
+        | OBJECTID error ':' TYPEID ';'
+                { $$ = nullptr; }
+        | OBJECTID error TYPEID ASSIGN expr ';'
+                { $$ = nullptr; }
+        | OBJECTID '(' formal_list ')' error '{' expr '}' ';'
                 { $$ = nullptr; }
         | OBJECTID '(' formal_list ')' ':' error '{' expr '}' ';'
                 { $$ = nullptr; }
+        | OBJECTID '(' formal_list ')' ':' TYPEID error ';'
+                { $$ = nullptr; }
+        | OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}' error
+                { $$ = nullptr; }
         | OBJECTID ':' error ';'
                 { $$ = nullptr; }
-        | OBJECTID ':' TYPEID ASSIGN error ';'
+        | OBJECTID ':' TYPEID error
+                { $$ = nullptr; }
+        | OBJECTID ':' error ASSIGN expr ';'
+                { $$ = nullptr; }
+        | OBJECTID ':' TYPEID ASSIGN expr error
+                { $$ = nullptr; }
+        | OBJECTID '(' formal_list ')' ':' TYPEID '{' expr error '}' ';'
                 { $$ = nullptr; }
         ;
 
@@ -227,6 +252,12 @@ expr    : OBJECTID ASSIGN expr
                 { $$ = $2; }
         | CASE expr OF case_list ESAC
                 { $$ = typcase($2,$4); }
+        | CASE error OF case_list ESAC
+                { $$ = nullptr; }
+        | CASE expr error case_list ESAC
+                { $$ = nullptr; }
+        | CASE expr OF case_list error
+                { $$ = nullptr; }
         | NEW TYPEID
                 { $$ = new_($2); }
         | ISVOID expr
@@ -273,9 +304,9 @@ expr_list_nonempty
                 { $$ = single_Expressions($1); }
         | expr_list_nonempty ',' expr
                 { $$ = append_Expressions($1,single_Expressions($3)); }
-        | expr_list_nonempty ',' error
-                { $$ = nullptr; }
         | error
+                { $$ = nullptr; }
+        | expr_list_nonempty ',' error
                 { $$ = nullptr; }
         ;
 
@@ -289,16 +320,20 @@ expr_list2 /* expr list ends with ';' */
         ;
 
 let_list
-        : OBJECTID ':' TYPEID IN expr
-                { $$ = let($1,$3,no_expr(),$5); }
+        : OBJECTID ':' TYPEID no_expr IN expr
+                { $$ = let($1,$3,$4,$6); }
         | OBJECTID ':' TYPEID ASSIGN expr IN expr
                 { $$ = let($1,$3,$5,$7); }
-        | OBJECTID ':' TYPEID ',' let_list
-                { $$ = let($1,$3,no_expr(),$5); }
+        | OBJECTID ':' TYPEID no_expr ',' let_list
+                { $$ = let($1,$3,$4,$6); }
         | OBJECTID ':' TYPEID ASSIGN expr ',' let_list
                 { $$ = let($1,$3,$5,$7); }
         | OBJECTID error IN expr
                 { $$ = nullptr; }
+        ;
+
+no_expr :
+                { $$ = no_expr(); }
         ;
 
 case_list
