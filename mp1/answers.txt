@@ -30,4 +30,19 @@ list_nonempty : expr | list_nonempty , expr
 
 增加一个`no_expr`终结符保证let语句中的`no_expr()`的行号是正确的，否则在let语句的action中`no_expr()`将会默认使用let语句的最后一行的行号。
 
-错误处理已经完成，测试样例和说明文档下周补充。
+错误处理已经完成，测试样例在`bison_test_bad.cl`中。测试`bison_test_bad.cl`的时候，由于parser只能输出前21个错误，所以测试后面的错误应该先把前面的注释掉。
+
+错误处理可以做到基本要求，并且在基本要求之上可以处理很多其他错误。
+
+class定义中遇到错误，这个类定义可以被正确终止，并且能够继续解析下一个类定义。parser也能从feature、let语句、`{...}`中的表达式中发生的错误中恢复，并跳到下一个对应层次的语法结构继续解析。
+
+`bison_test_bad.cl`中列举了各种错误的例子，由于错误的原因很容易看出，在此就不一一描述每个错误了。
+
+下面说一下测试结果中我的程序和`reference binary`不同的地方：
+
+61行feature名称大写后下一个错误是65行formal名称大写。`reference binary`不知为何一路read并且discard所有token直到下一个class，而不处理其他feature。我的实现可以正确处理。
+
+118行`if 1 then else 1 fi`中`then`和`else`之间为空，`reference binary`因上一个函数（f9）的错误没有恢复过来而使得新错误未报错。我的实现没有问题。
+
+134行`while 1 pool 1 pool`中，到第一个`pool`时就已经有问题了，我的程序在`pool`这个token报错，而`reference binary`不知为何在常数1处报错。
+
