@@ -1,0 +1,20 @@
+digraph unnamed {
+
+	Node0x7fb4b4b396d0 [shape=record,label="{ [B0 (EXIT)]\l}"];
+	Node0x7fb4b4b397a8 [shape=record,label="{ [B1]\l  1: 0\l  2: return [B1.1];\l}"];
+	Node0x7fb4b4b397a8 -> Node0x7fb4b4b396d0;
+	Node0x7fb4b4b39880 [shape=record,label="{ [B2]\l  1: i\l  2: [B2.1]++\l}"];
+	Node0x7fb4b4b39880 -> Node0x7fb4b4b39bc8;
+	Node0x7fb4b4b39958 [shape=record,label="{ [B3]\l  1: s\l  2: i\l  3: [B3.2] (ImplicitCastExpr, LValueToRValue, int)\l  4: [B3.1] += [B3.3]\l}"];
+	Node0x7fb4b4b39958 -> Node0x7fb4b4b39880;
+	Node0x7fb4b4b39a30 [shape=record,label="{ [B4]\l  1: i\l  2: [B4.1] (ImplicitCastExpr, LValueToRValue, int)\l  3: 2\l  4: [B4.2] % [B4.3]\l  5: 0\l  6: [B4.4] == [B4.5]\l   T: if [B4.6]\l}"];
+	Node0x7fb4b4b39a30 -> Node0x7fb4b4b39958;
+	Node0x7fb4b4b39a30 -> Node0x7fb4b4b39880;
+	Node0x7fb4b4b39bc8 [shape=record,label="{ [B5]\l  1: i\l  2: [B5.1] (ImplicitCastExpr, LValueToRValue, int)\l  3: 10\l  4: [B5.2] \< [B5.3]\l   T: for (...; [B5.4]; ...)\l}"];
+	Node0x7fb4b4b39bc8 -> Node0x7fb4b4b39a30;
+	Node0x7fb4b4b39bc8 -> Node0x7fb4b4b397a8;
+	Node0x7fb4b4b39cc0 [shape=record,label="{ [B6]\l  1: int i;\l  2: 0\l  3: int s = 0;\l  4: 0\l  5: i\l  6: [B6.5] = [B6.4]\l}"];
+	Node0x7fb4b4b39cc0 -> Node0x7fb4b4b39bc8;
+	Node0x7fb4b4b39e68 [shape=record,label="{ [B7 (ENTRY)]\l}"];
+	Node0x7fb4b4b39e68 -> Node0x7fb4b4b39cc0;
+}
