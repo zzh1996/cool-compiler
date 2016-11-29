@@ -56,6 +56,8 @@ weak_ptr：和shared_ptr类似，但不增加引用计数，语义上其指向�
 
 **3.4.5 根据以上认识，你认为这个简单的checker能够识别出怎样的bug？又有哪些局限性？请给出测试程序及相关的说明。**
 
+请参考`sschecker_test.c`文件。`double_close`函数是文件重复关闭，`double_close_with_condition`在某些条件下（a!=0）会重复关闭文件。`leak`中打开的文件未关闭，`leak_with_condition`在某些条件下文件不会被关闭。以上情况这个checker都可以检测出来。`close_if_success`是判断文件指针不为NULL时才关闭文件，这种情况下不会报leak，因为不关闭文件的分支下可以推断出f一定是NULL。这个checker有一些局限性，举例如下：`escape1`是把指针f传给了do_something函数，即使实际上do_something中不关闭文件，checker也不会报leak，因为checker无法判断do_something做了什么，这就导致了指针p产生escape。同理，`escape2`中f被赋值给一个全局变量，checker也无法继续追踪。但是，当指针f传给一些保证不会关闭文件的函数时，checker可以继续正常报leak，例如`no_escape`中的fgetc就可以保证不会关闭文件。
+
 **3.5.1 增加一个checker需要增加哪些文件？需要对哪些文件进行修改？**
 
 **3.5.2 阅读`clang/include/clang/StaticAnalyzer/Checkers/CMakeLists.txt`，解释其中的 clang_tablegen 函数的作用。**
