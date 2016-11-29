@@ -1,6 +1,6 @@
 **3.1.5 简要说明`test.c`、`AST.svg`、`CFG.svg`和`ExplodedGraph.svg`之间的联系与区别**
 
-`test.c`是程序的源代码。`AST.svg`由源代码生成，展示了整棵抽象语法树。`CFG.avg`是整个程序的流程图，箭头展示了不同代码块之间的跳转关系。`ExplodedGraph.svg`是分析器沿所有路径进行symbolic execution得到的状态，其中包含了每个状态详细的信息。
+`test.c`是程序的源代码。`AST.svg`由源代码生成，展示了整棵抽象语法树。`CFG.avg`是整个程序的流程图，箭头展示了不同代码块之间的跳转关系。`ExplodedGraph.svg`是分析器沿所有路径进行symbolic execution得到的状态，其中包含了每个状态详细的信息。由于CFG中同一个节点在ExplodedGraph中状态可以不同，所以ExplodedGraph会包含更多节点，产生更多分支。
 
 **3.2.1  Checker 对于程序的分析主要在 AST 上还是在 CFG 上进行？**
 
@@ -37,4 +37,28 @@ weak_ptr：和shared_ptr类似，但不增加引用计数，语义上其指向�
 **3.3.4 你有时会在cpp文件中看到匿名命名空间的使用，这是出于什么考虑？**
 
 匿名命名空间可以让里面的内容（尤其是class，因为变量和函数都可以用static）仅对当前翻译单元可见，可以避免名称冲突。
+
+**3.4.1 这个 checker 对于什么对象保存了哪些状态？保存在哪里？**
+
+保存了文件指针的StreamState（有Opened和Closed两种状态），保存在`ProgramState`里（实际上位于CFG节点的state中）。
+
+**3.4.2 状态在哪些时候会发生变化？**
+
+`fopen`被调用时设定其返回的文件指针状态为Opened，`fclose`被调用时设定其参数的状态为Closed。对于dead symbol和escaped symbol（例如传给了一个有可能关闭文件的函数），删除其状态。 
+
+**3.4.3 在哪些地方有对状态的检查？**
+
+`fclose`调用时检查状态是否已经是Closed，如果是则是重复关闭。`checkDeadSymbols`中判断`isLeaked`时检查文件指针是否仍为Opened状态，如果是则是Leak。
+
+**3.4.4 函数`SimpleStreamChecker::checkPointerEscape`的逻辑是怎样的？实现了什么功能？用在什么地方？**
+
+函数的逻辑：如果指针是直接作为参数传入函数，并且函数保证不关闭文件，那么不需要做处理，状态保持原状即可。否则这个指针将无法继续分析，把所有这样的指针的状态移除。实现的功能就是当无法继续追踪一个指针时，就不再追踪它，以防止误报。当analyzer发现指针赋值给全局变量或者传入了无法分析的函数等情况时，这个函数会被调用。
+
+**3.4.5 根据以上认识，你认为这个简单的checker能够识别出怎样的bug？又有哪些局限性？请给出测试程序及相关的说明。**
+
+**3.5.1 增加一个checker需要增加哪些文件？需要对哪些文件进行修改？**
+
+**3.5.2 阅读`clang/include/clang/StaticAnalyzer/Checkers/CMakeLists.txt`，解释其中的 clang_tablegen 函数的作用。**
+
+**3.5.3 `.td`文件在clang中出现多次，比如这里的`clang/include/clang/StaticAnalyzer/Checkers/Checkers.td`。这类文件的作用是什么？它是怎样生成C++头文件或源文件的？这个机制有什么好处？**
 
