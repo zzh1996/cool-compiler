@@ -60,6 +60,8 @@ weak_ptr：和shared_ptr类似，但不增加引用计数，语义上其指向�
 
 **3.5.1 增加一个checker需要增加哪些文件？需要对哪些文件进行修改？**
 
+在`lib/StaticAnalyzer/Checkers`中增加checker的实现（.cpp文件），其中包含一段注册代码。在`lib/StaticAnalyzer/Checkers/Checkers.td`中增加checker的描述，包括它应该归属的package名。在`lib/StaticAnalyzer/Checkers/CMakeLists.txt`中添加源码的文件名。
+
 **3.5.2 阅读`clang/include/clang/StaticAnalyzer/Checkers/CMakeLists.txt`，解释其中的 clang_tablegen 函数的作用。**
 
 **3.5.3 `.td`文件在clang中出现多次，比如这里的`clang/include/clang/StaticAnalyzer/Checkers/Checkers.td`。这类文件的作用是什么？它是怎样生成C++头文件或源文件的？这个机制有什么好处？**
