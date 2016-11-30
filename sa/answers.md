@@ -64,5 +64,9 @@ weak_ptr：和shared_ptr类似，但不增加引用计数，语义上其指向�
 
 **3.5.2 阅读`clang/include/clang/StaticAnalyzer/Checkers/CMakeLists.txt`，解释其中的 clang_tablegen 函数的作用。**
 
+`clang_tablegen`定义在`clang/cmake/modules/AddClang.cmake`里。这里的`clang_tablegen`定义了一个新的target：`ClangSACheckers`，并且指定生成这个target的命令是`tblgen Checkers.td -o=Checkers.inc -gen-clang-sa-checkers -I ${CMAKE_CURRENT_SOURCE_DIR}/../../../`。这条命令使用TableGen程序从`Checkers.td`使用`gen-clang-sa-checkers`后端生成了`Checkers.inc`这个C++文件。
+
 **3.5.3 `.td`文件在clang中出现多次，比如这里的`clang/include/clang/StaticAnalyzer/Checkers/Checkers.td`。这类文件的作用是什么？它是怎样生成C++头文件或源文件的？这个机制有什么好处？**
+
+`.td`文件经过指定了Domain specific backend的TableGen程序（`llvm-tblgen`）处理后可以生成后缀为`.inc`的C++代码。在编写llvm后端代码的时候，不同的目标架构需要独立编写后端，但是其中很大一部分代码都是重复的。TableGen为解决这类问题而设计。使用TableGen可以用`.td`文件从更高层次上描述一些东西，以实现高效的代码复用，减少修改代码时的维护成本。
 
