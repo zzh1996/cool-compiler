@@ -191,10 +191,32 @@
 
 **3. 检查的实现机制是什么？列出相关的源码位置和主要处理流程**
 
+调用`fopen`后未检查返回值是否是NULL就使用文件
+
+处理`fopen`、`tmpfile`等打开文件的函数时，会调用211行的`StreamChecker::OpenFileAux`方法，其中会为`fopen`的返回值绑定状态。绑定的状态分为两种：`Opened`和`OpenFailed`，这会使得ExplodedGraph产生两个分支，分别代表文件打开成功和失败，对应于`fopen`的值是否为NULL。
+
+调用`ftell`等函数使用文件指针时，checker会调用341行的`StreamChecker::CheckNullStream`方法。其中会根据函数指针那个参数分为两种情况做处理。如果函数指针是NULL，则报`Stream pointer might be NULL`错误。
+
+调用文件相关API的参数类型有误
+
+以`fseek`为例，在第258行`StreamChecker::Fseek`中，对第2（从0开始计数）个参数做出判断，如果参数不是在0~2范围内则报错`Illegal whence argument`
+
+文件被关闭多次
+
+处理`fclose`时，会调用364行的`StreamChecker::CheckDoubleClose`方法。这里会检查，如果文件指针已经是`Closed`状态，则报`Try to close a file Descriptor already`错误。否则会把文件指针置为`Closed`状态。
+
+打开的文件没有被关闭
+
+当局部变量超出作用域等产生DeadSymbols的情况发生时，397行的`StreamChecker::checkDeadSymbols`会被调用。这里会循环遍历所有的DeadSymbols，如果仍然是`Opened`状态，则报错`Opened File never closed. Potential Resource leak`。
 
 **4. （可选）从实现机制上分析，为什么检查不出来上述问题2的解答中所列的特征？**
 
-- 有些文件相关函数不支持的问题：
-
+- 有些文件相关函数不支持的问题：checker中未对这些函数进行处理。
+- `fclose`的参数可能为NULL或一定为NULL时不会报错：处理`fclose`的函数根本没判断`fclose`的参数是否可能为NULL。
+- 存在escape时有可能误报：传给不知道定义的函数时，无法得知这个函数中是否可能将文件关闭。一般情况下函数不会这么做，所以默认是函数不会关闭。传给全局变量的情况中，无法得知函数返回后全局变量会被如何使用，所以无法判断。
 
 **5. （可选）如果想增强检查能力，可以怎么做？**
+
+- 存在escape的情况很难处理，因为有很多信息checker无法得知，也就无法判断。
+- 不支持某些文件操作函数和`fclose`的参数为NULL的情况可以通过简单的修改以增强检查能力。我们可以将`fprintf`和`fscanf`等函数也加入checker检查的函数调用中，同时在`fclose`的处理中检查参数是否为NULL。
+
