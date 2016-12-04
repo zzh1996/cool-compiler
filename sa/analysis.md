@@ -144,7 +144,6 @@
           fclose(f);
       }
   }
-
   ```
 
   `fcloseall`函数也不支持。以上代码中`f`显然被关闭了两次，但不会报warning。
@@ -218,5 +217,73 @@
 **5. （可选）如果想增强检查能力，可以怎么做？**
 
 - 存在escape的情况很难处理，因为有很多信息checker无法得知，也就无法判断。
+
 - 不支持某些文件操作函数和`fclose`的参数为NULL的情况可以通过简单的修改以增强检查能力。我们可以将`fprintf`和`fscanf`等函数也加入checker检查的函数调用中，同时在`fclose`的处理中检查参数是否为NULL。
 
+  我对这个checker进行了一些修改，可以增强其检查能力。修改后的checker放在了`sa/StreamChecker.cpp`。修改后的checker可以处理`fprintf`函数和`fclose`的参数为NULL的情况。
+
+  测试代码如下：
+
+  ```c
+  #include<stdio.h>
+
+  void foo(){
+      FILE *p=fopen("test1","r");
+      fclose(p);
+  }
+
+  void foo2(){
+      fclose(NULL);
+  }
+
+  void foo(){
+      FILE *p=fopen("test","w");
+      fprintf(p,"test");
+      fclose(p);
+  }
+
+  ```
+
+  现在这三个函数都可以报`warning: Stream pointer might be NULL`，而之前的checker遇到这些情况不会报warning。
+
+  对这个checker的修改可以由diff得出：
+
+  ```
+  $ diff StreamChecker.cpp StreamChecker.cpp.old 
+  64c64
+  <                  *II_clearerr, *II_feof, *II_ferror, *II_fileno, *II_fprintf;
+  ---
+  >                  *II_clearerr, *II_feof, *II_ferror, *II_fileno;
+  74c74
+  <       II_ferror(nullptr), II_fileno(nullptr), II_fprintf(nullptr) {}
+  ---
+  >       II_ferror(nullptr), II_fileno(nullptr) {}
+  94d93
+  <   void Fprintf(CheckerContext &C, const CallExpr *CE) const;
+  143,144d141
+  <   if (!II_fprintf)
+  <     II_fprintf = &Ctx.Idents.get("fprintf");
+  202,205d198
+  <   if (FD->getIdentifier() == II_fprintf) {
+  <     Fprintf(C, CE);
+  <     return true;
+  <   }
+  246,250c239
+  <   ProgramStateRef state = C.getState();
+  <   if (!CheckNullStream(state->getSVal(CE->getArg(0), C.getLocationContext()),
+  <                        state, C))
+  <     return;
+  <   state = CheckDoubleClose(CE, state, C);
+  ---
+  >   ProgramStateRef state = CheckDoubleClose(CE, C.getState(), C);
+  346,352d334
+  <   ProgramStateRef state = C.getState();
+  <   if (!CheckNullStream(state->getSVal(CE->getArg(0), C.getLocationContext()),
+  <                        state, C))
+  <     return;
+  < }
+  < 
+  < void StreamChecker::Fprintf(CheckerContext &C, const CallExpr *CE) const {
+  ```
+
+  可以看出新增了对`printf`和`fclose`时文件指针为NULL的处理。
