@@ -6,6 +6,11 @@ class __attribute__((packed)) A{
 public:
     char a;
     void fa(){}
+    void test(int a){}
+    void test(int a,int b){}
+    void test(int a,double b,char c,int *d,int &e){};
+    void test()const{}
+    int test(int a,int b,int c){}
 };
 
 class __attribute__((packed)) B:virtual public A{
@@ -41,6 +46,14 @@ int main(){
     d.C::fa();
     d.B::fa();
     d.fa(); //no error
+    int x;
+    d.test();
+    d.test(1);
+    d.test(1,2);
+    d.test(1,2,3);
+    d.test(1,2,3,&x,x);
+
+
 #define addr(x) cout<<((char*)(&(x))-(char*)(&d))<<endl;
     addr(d.d)
     addr(d.c)
