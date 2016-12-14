@@ -573,11 +573,13 @@ void CgenClassTable::code_classes(CgenNode *c)
 //
 void CgenClassTable::code_main()
 {
+	ValuePrinter vp(*ct_stream);
 	// Define a function main that has no parameters and returns an i32
-
+	vp.define(op_type(INT32),"main",vector<operand>());
 	// Define an entry basic block
-
+	vp.begin_block("entry");
 	// Call Main_main(). This returns int* for phase 1, Object for phase 2
+	operand r=vp.call(vector<op_type>(),op_type(INT32),"Main_main",true,vector<operand>());
 
 
 #ifndef MP3
@@ -588,10 +590,12 @@ void CgenClassTable::code_main()
 	// and the return value of Main_main() as its arguments
 
 	// Insert return 0
+	vp.ret(int_value(0));
 
 #else
 	// Phase 2
 #endif
+	vp.end_define();
 
 }
 
