@@ -814,9 +814,12 @@ void method_class::code(CgenEnvironment *env)
 operand assign_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "assign" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+
+	ValuePrinter vp(*env->cur_stream);
+	operand *obj=env->lookup(name);
+	operand expr_value=expr->code(env);
+	vp.store(expr_value,*obj);
+	return expr_value;
 }
 
 operand cond_class::code(CgenEnvironment *env) 
@@ -849,9 +852,27 @@ operand block_class::code(CgenEnvironment *env)
 operand let_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "let" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+
+	ValuePrinter vp(*env->cur_stream);
+	op_type init_type;
+	if(type_decl->equal_string("Int",3))
+		init_type=op_type(INT32);
+	else if(type_decl->equal_string("Bool",4))
+		init_type=op_type(INT1);
+	operand init_ptr=vp.alloca_mem(init_type);
+	operand init_value=init->code(env);
+	if(init_value.is_empty()){
+		if(init_type.get_id()==INT32)
+			vp.store(int_value(0),init_ptr);
+		else if(init_type.get_id()==INT1)
+			vp.store(bool_value(false,false),init_ptr);
+	}else{
+		vp.store(init_value,init_ptr);
+	}
+	env->add_local(identifier,init_ptr);
+	operand body_value=body->code(env);
+	env->kill_local();
+	return body_value;
 }
 
 operand plus_class::code(CgenEnvironment *env) 
@@ -943,16 +964,16 @@ operand bool_const_class::code(CgenEnvironment *env)
 operand object_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "Object" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+
+	ValuePrinter vp(*env->cur_stream);
+	operand *obj=env->lookup(name);
+	return vp.load(obj->get_type().get_deref_type(),*obj);
 }
 
 operand no_expr_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "No_expr" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
+
 	return operand();
 }
 
