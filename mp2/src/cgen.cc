@@ -547,6 +547,10 @@ void CgenClassTable::code_module()
 	// needed by the code() method for expressions
 	CgenNode* mainNode = getMainmain(root());
 	mainNode->codeGenMainmain();
+
+	ValuePrinter vp(*ct_stream);
+	vp.init_constant("fmt",const_value(op_arr_type(INT8,25),
+		"Main_main() returned %d\n",false));
 #endif
 	code_main();
 
@@ -579,16 +583,25 @@ void CgenClassTable::code_main()
 	// Define an entry basic block
 	vp.begin_block("entry");
 	// Call Main_main(). This returns int* for phase 1, Object for phase 2
-	operand r=vp.call(vector<op_type>(),op_type(INT32),"Main_main",true,vector<operand>());
+	operand r=vp.call(vector<op_type>(),op_type(INT32),
+		"Main_main",true,vector<operand>());
 
 
 #ifndef MP3
 	// Get the address of the string "Main_main() returned %d\n" using
-	// getelementptr 
-
+	// getelementptr
+	operand fmt_str=vp.getelementptr(op_arr_type(INT8,25),
+		global_value(op_arr_type(INT8_PTR,25),"fmt"),
+		int_value(0),int_value(0),op_type(INT8_PTR));
 	// Call printf with the string address of "Main_main() returned %d\n"
 	// and the return value of Main_main() as its arguments
-
+	vector<op_type> arg_types;
+	arg_types.push_back(op_type(INT8_PTR));
+	arg_types.push_back(op_type(VAR_ARG));
+	vector<operand> args;
+	args.push_back(fmt_str);
+	args.push_back(r);
+	vp.call(arg_types,op_type(INT32),"printf",true,args);
 	// Insert return 0
 	vp.ret(int_value(0));
 
@@ -673,7 +686,7 @@ void CgenNode::layout_features()
 //
 void CgenNode::codeGenMainmain()
 {
-	ValuePrinter vp;
+	ValuePrinter vp(*class_table->ct_stream);
 	// In Phase 1, this can only be class Main. Get method_class for main().
 	assert(std::string(this->name->get_string()) == std::string("Main"));
 	method_class* mainMethod = (method_class*) features->nth(features->first());
@@ -682,8 +695,11 @@ void CgenNode::codeGenMainmain()
 	// Generally what you need to do are:
 	// -- setup or create the environment, env, for translating this method
 	// -- invoke mainMethod->code(env) to translate the method
-	
-
+	vp.define(op_type(INT32),"Main_main",vector<operand>());
+	vp.begin_block("entry");
+	CgenEnvironment *env=new CgenEnvironment(*class_table->ct_stream,this);
+	mainMethod->code(env);
+	vp.end_define();
 }
 
 #endif
@@ -788,7 +804,8 @@ void method_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "method" << endl;
 
 	// ADD CODE HERE
-
+	ValuePrinter vp(*env->cur_stream);
+	vp.ret(expr->code(env));
 }
 
 //
@@ -824,7 +841,11 @@ operand block_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "block" << endl;
 	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
 	// MORE MEANINGFUL
-	return operand();
+	operand last;
+	for(int i=body->first();body->more(i);i=body->next(i)){
+		last=body->nth(i)->code(env);
+	}
+	return last;
 }
 
 operand let_class::code(CgenEnvironment *env) 
@@ -912,7 +933,7 @@ operand int_const_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "Integer Constant" << endl;
 	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
 	// MORE MEANINGFUL
-	return operand();
+	return int_value(atoi(token->get_string()));
 }
 
 operand bool_const_class::code(CgenEnvironment *env) 
@@ -920,7 +941,7 @@ operand bool_const_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "Boolean Constant" << endl;
 	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
 	// MORE MEANINGFUL
-	return operand();
+	return bool_value(val,false);
 }
 
 operand object_class::code(CgenEnvironment *env) 
