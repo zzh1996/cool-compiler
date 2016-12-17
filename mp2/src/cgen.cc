@@ -549,6 +549,8 @@ void CgenClassTable::code_module()
 	mainNode->codeGenMainmain();
 
 	ValuePrinter vp(*ct_stream);
+	// declare string constant fmt for printf
+	// between Main_main and main
 	vp.init_constant("fmt",const_value(op_arr_type(INT8,25),
 		"Main_main() returned %d\n",false));
 #endif
@@ -596,11 +598,11 @@ void CgenClassTable::code_main()
 	// Call printf with the string address of "Main_main() returned %d\n"
 	// and the return value of Main_main() as its arguments
 	vector<op_type> arg_types;
-	arg_types.push_back(op_type(INT8_PTR));
-	arg_types.push_back(op_type(VAR_ARG));
+	arg_types.push_back(op_type(INT8_PTR)); // type of i8*
+	arg_types.push_back(op_type(VAR_ARG)); // type of ...
 	vector<operand> args;
-	args.push_back(fmt_str);
-	args.push_back(r);
+	args.push_back(fmt_str); // printf format string
+	args.push_back(r); // number returned by main
 	vp.call(arg_types,op_type(INT32),"printf",true,args);
 	// Insert return 0
 	vp.ret(int_value(0));
@@ -608,7 +610,7 @@ void CgenClassTable::code_main()
 #else
 	// Phase 2
 #endif
-	vp.end_define();
+	vp.end_define(); // end definition of function main
 
 }
 
@@ -695,10 +697,16 @@ void CgenNode::codeGenMainmain()
 	// Generally what you need to do are:
 	// -- setup or create the environment, env, for translating this method
 	// -- invoke mainMethod->code(env) to translate the method
+
+	// define function main
 	vp.define(op_type(INT32),"Main_main",vector<operand>());
+	// define an entry basic block
 	vp.begin_block("entry");
+	// create the environment
 	CgenEnvironment *env=new CgenEnvironment(*class_table->ct_stream,this);
+	// translate the Main_main method
 	mainMethod->code(env);
+	// end definition
 	vp.end_define();
 }
 
@@ -804,6 +812,7 @@ void method_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "method" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// translate the expression and return it
 	vp.ret(expr->code(env));
 }
 
@@ -816,9 +825,13 @@ operand assign_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "assign" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// look up the address of the variable from the symbol table
 	operand *obj=env->lookup(name);
+	// calculate the rvalue
 	operand expr_value=expr->code(env);
+	// store rvalue into the address of the variable
 	vp.store(expr_value,*obj);
+	// return rvalue as the value of the assignment
 	return expr_value;
 }
 
@@ -827,24 +840,37 @@ operand cond_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "cond" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// calculate pred
 	operand pred_value=pred->code(env);
 	op_type return_type;
+	// get the type of then_exp as the type of the if expression
 	if(then_exp->get_type()->equal_string("Int",3))
 		return_type=op_type(INT32);
 	else if(then_exp->get_type()->equal_string("Bool",4))
 		return_type=op_type(INT1);
+	// allocate memory for the result
 	operand return_ptr=vp.alloca_mem(return_type);
+	// generate labels
 	label true_label=env->new_label("true",false);
 	label false_label=env->new_label("false",false);
 	label endif_label=env->new_label("endif",true);
+	// branch according to the value of pred
 	vp.branch_cond(pred_value,true_label,false_label);
+	// if true
 	vp.begin_block(true_label);
+	// store the value of then_exp
 	vp.store(then_exp->code(env),return_ptr);
+	// jump to endif
 	vp.branch_uncond(endif_label);
+	// if false
 	vp.begin_block(false_label);
+	// store the value of else_exp
 	vp.store(else_exp->code(env),return_ptr);
-	vp.branch_uncond(endif_label); //why???
+	// jump to endif
+	vp.branch_uncond(endif_label);
+	// endif
 	vp.begin_block(endif_label);
+	// return the value stored in allocated memory
 	return vp.load(return_type,return_ptr);
 }
 
@@ -853,17 +879,26 @@ operand loop_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "loop" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// generate labels
 	label pred_label=env->new_label("pred",false);
 	label body_label=env->new_label("body",false);
 	label endloop_label=env->new_label("endloop",true);
+	// jump to begin of the loop
 	vp.branch_uncond(pred_label);
+	// begin of the loop
 	vp.begin_block(pred_label);
+	// calculate pred
 	operand pred_value=pred->code(env);
+	// branch according to the value of pred
 	vp.branch_cond(pred_value,body_label,endloop_label);
+	// if true, run the loop body
 	vp.begin_block(body_label);
 	body->code(env);
+	// jump to begin of the loop, start the next cycle
 	vp.branch_uncond(pred_label);
+	// if false, end the loop
 	vp.begin_block(endloop_label);
+	// return 0 as required
 	return int_value(0);
 } 
 
@@ -872,9 +907,11 @@ operand block_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "block" << endl;
 
 	operand last;
+	// generate code for each expression in the block
 	for(int i=body->first();body->more(i);i=body->next(i)){
 		last=body->nth(i)->code(env);
 	}
+	// the value of the block is the value of the last expression
 	return last;
 }
 
@@ -884,23 +921,32 @@ operand let_class::code(CgenEnvironment *env)
 
 	ValuePrinter vp(*env->cur_stream);
 	op_type init_type;
+	// get the type of the variable
 	if(type_decl->equal_string("Int",3))
 		init_type=op_type(INT32);
 	else if(type_decl->equal_string("Bool",4))
 		init_type=op_type(INT1);
+	// allocate memory for the variable
 	operand init_ptr=vp.alloca_mem(init_type);
+	// calculate the init value
 	operand init_value=init->code(env);
-	if(init_value.is_empty()){
+	if(init_value.is_empty()){ // if no init value
+		// store 0 for int and false for bool
 		if(init_type.get_id()==INT32)
 			vp.store(int_value(0),init_ptr);
 		else if(init_type.get_id()==INT1)
 			vp.store(bool_value(false,false),init_ptr);
 	}else{
+		// store the init value
 		vp.store(init_value,init_ptr);
 	}
+	// add the new variable into the symbol table
 	env->add_local(identifier,init_ptr);
+	// run the body
 	operand body_value=body->code(env);
+	// delete the variable from the symbol table
 	env->kill_local();
+	// return the value of the body
 	return body_value;
 }
 
@@ -909,6 +955,8 @@ operand plus_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "plus" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// just generate code for e1 and e2 and return the sum
+	// the same for other operators
 	return vp.add(e1->code(env),e2->code(env));
 }
 
@@ -933,15 +981,22 @@ operand divide_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "div" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// calculate operands
 	operand e1_value=e1->code(env);
 	operand e2_value=e2->code(env);
+	// compare the divisor with 0
 	operand is_zero=vp.icmp(EQ,e2_value,int_value(0));
+	// generate labels
 	label zero_label=env->new_label("zero",false);
 	label nonzero_label=env->new_label("nonzero",true);
+	// branch according to whether the divisor is 0
 	vp.branch_cond(is_zero,zero_label,nonzero_label);
+	// if zero, call abort
 	vp.begin_block(zero_label);
 	vp.call(vector<op_type>(),op_type(VOID),"abort",true,vector<operand>());
+	// generate unreachable, ending the basic block
 	vp.unreachable();
+	// if nonzero, perform division and return
 	vp.begin_block(nonzero_label);
 	return vp.div(e1_value,e2_value);
 }
