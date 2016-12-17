@@ -1006,6 +1006,7 @@ operand neg_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "neg" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// -e1 = 0 - e1
 	return vp.sub(int_value(0),e1->code(env));
 }
 
@@ -1038,6 +1039,7 @@ operand comp_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "complement" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// for "not", xor e1 with bool true
 	return vp.xor_in(e1->code(env),bool_value(true,false));
 }
 
@@ -1045,6 +1047,7 @@ operand int_const_class::code(CgenEnvironment *env)
 {
 	if (cgen_debug) std::cerr << "Integer Constant" << endl;
 
+	// generate int constant from the token string
 	return int_value(atoi(token->get_string()));
 }
 
@@ -1052,6 +1055,7 @@ operand bool_const_class::code(CgenEnvironment *env)
 {
 	if (cgen_debug) std::cerr << "Boolean Constant" << endl;
 
+	// generate bool constant from value
 	return bool_value(val,false);
 }
 
@@ -1060,7 +1064,9 @@ operand object_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "Object" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
+	// look up the address of the variable from the symbol table
 	operand *obj=env->lookup(name);
+	// load value from the address
 	return vp.load(obj->get_type().get_deref_type(),*obj);
 }
 
@@ -1068,6 +1074,7 @@ operand no_expr_class::code(CgenEnvironment *env)
 {
 	if (cgen_debug) std::cerr << "No_expr" << endl;
 
+	// return empty operand
 	return operand();
 }
 
