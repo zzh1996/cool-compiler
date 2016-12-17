@@ -933,7 +933,17 @@ operand divide_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "div" << endl;
 
 	ValuePrinter vp(*env->cur_stream);
-	return vp.div(e1->code(env),e2->code(env));
+	operand e1_value=e1->code(env);
+	operand e2_value=e2->code(env);
+	operand is_zero=vp.icmp(EQ,e2_value,int_value(0));
+	label zero_label=env->new_label("zero",false);
+	label nonzero_label=env->new_label("nonzero",true);
+	vp.branch_cond(is_zero,zero_label,nonzero_label);
+	vp.begin_block(zero_label);
+	vp.call(vector<op_type>(),op_type(VOID),"abort",true,vector<operand>());
+	vp.unreachable();
+	vp.begin_block(nonzero_label);
+	return vp.div(e1_value,e2_value);
 }
 
 operand neg_class::code(CgenEnvironment *env) 
