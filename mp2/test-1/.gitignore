@@ -1,0 +1,8 @@
+*.bc
+*.ast
+*.exe
+*.ll
+*.s
+*.out
+*.verify
+*.o
