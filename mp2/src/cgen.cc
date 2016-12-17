@@ -825,17 +825,46 @@ operand assign_class::code(CgenEnvironment *env)
 operand cond_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "cond" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+
+	ValuePrinter vp(*env->cur_stream);
+	operand pred_value=pred->code(env);
+	op_type return_type;
+	if(then_exp->get_type()->equal_string("Int",3))
+		return_type=op_type(INT32);
+	else if(then_exp->get_type()->equal_string("Bool",4))
+		return_type=op_type(INT1);
+	operand return_ptr=vp.alloca_mem(return_type);
+	label true_label=env->new_label("true",false);
+	label false_label=env->new_label("false",false);
+	label endif_label=env->new_label("endif",true);
+	vp.branch_cond(pred_value,true_label,false_label);
+	vp.begin_block(true_label);
+	vp.store(then_exp->code(env),return_ptr);
+	vp.branch_uncond(endif_label);
+	vp.begin_block(false_label);
+	vp.store(else_exp->code(env),return_ptr);
+	vp.branch_uncond(endif_label); //why???
+	vp.begin_block(endif_label);
+	return vp.load(return_type,return_ptr);
 }
 
 operand loop_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "loop" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+
+	ValuePrinter vp(*env->cur_stream);
+	label pred_label=env->new_label("pred",false);
+	label body_label=env->new_label("body",false);
+	label endloop_label=env->new_label("endloop",true);
+	vp.branch_uncond(pred_label);
+	vp.begin_block(pred_label);
+	operand pred_value=pred->code(env);
+	vp.branch_cond(pred_value,body_label,endloop_label);
+	vp.begin_block(body_label);
+	body->code(env);
+	vp.branch_uncond(pred_label);
+	vp.begin_block(endloop_label);
+	return int_value(0);
 } 
 
 operand block_class::code(CgenEnvironment *env) 
