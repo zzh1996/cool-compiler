@@ -44,19 +44,58 @@ int和bool常量的生成也很简单，以int为例：
 
 block表达式的代码生成就是对每个子表达式生成代码，然后返回最后一个表达式的结果。
 
-let
+对于let表达式，先获取新变量的类型，然后申请对应大小的空间，再计算初始值。如果没有初始值，则使用0（对于int）或者false（对于bool）作为初始值，然后将这个初始值存储到新申请的空间里面去。之后使用`env->add_local`将这个新变量加入符号表，执行let表达式的body，再使用`env->kill_local`恢复原来的符号表。
 
-object
+对于OBJECT表达式（即一个变量），使用`env->lookup`找到其所在的内存地址，然后load即可。
 
-赋值
+对于赋值表达式，使用`env->lookup`找到其所在的内存地址后计算右值，然后将右值store再地址中。
 
-if
+if和while是最复杂的两种表达式。
 
-while
+对于if，先根据then后面表达式的类型确定整个if表达式的类型，然后为其申请内存空间。然后计算条件部分（pred）的值，根据这个值生成条件跳转语句。之后分别生成true的语句块和false的语句块。这两个语句块执行完毕后都把结果保存进之前申请的内存空间中，并跳转到endif标签处。endif标签会读取之前申请的内存空间中的值并返回。生成标签的部分调用`new_label`函数，每个if使用新的整数后缀以保证标签不重复。
 
-运行时错误处理
+拿`if 1<2 then 3 else 4 fi`举例，其llvm IR汇编代码如下：
 
-测试
+```assembly
+	%vtpm.0 = icmp slt i32 1, 2
+	%vtpm.1 = alloca i32
+	br i1 %vtpm.0, label %true0, label %false0
+
+true0:
+	store i32 3, i32* %vtpm.1
+	br label %endif0
+
+false0:
+	store i32 4, i32* %vtpm.1
+	br label %endif0
+
+endif0:
+	%vtpm.2 = load i32, i32* %vtpm.1
+	ret i32 %vtpm.2
+```
+
+while语句与if语句较为类似，区别在于不用申请空间，而且跳转的标签不一样。while语句生成的结构大致是：先跳转到pred_label，即循环的开始，这里计算循环条件，如果条件满足则跳转至循环体body_label，否则调到循环结束endloop_label。循环体执行后跳回循环的最开始pred_label，判断循环条件，进行下一轮循环。循环结束处返回0（MP2的要求）。
+
+以`while 1<2 loop 1+1 pool;`为例，其llvm IR汇编代码如下：
+
+```assembly
+	br label %pred0
+
+pred0:
+	%vtpm.0 = icmp slt i32 1, 2
+	br i1 %vtpm.0, label %body0, label %endloop0
+
+body0:
+	%vtpm.1 = add i32 1, 1
+	br label %pred0
+
+endloop0:
+	ret i32 0
+```
+
+除此之外，还有一个除数为0的运行时错误处理。在除法运算中，计算两个操作数之后，插入比较语句来比较除数和0的关系，如果相等则调用abort函数终止程序执行，如果不等则正常进行除法。此处的跳转逻辑相当于之前的if语句。
+
+在`mp2/test-1`中，写了很多测试文件，对每种类型的表达式进行了全面的测试，而且还有一个综合测试程序`prime.cl`，程序执行结果都与预期一致。
 
 ### 参考资料
 
